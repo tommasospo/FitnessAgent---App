@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import { Login } from './pages/Login'
 import { AllenamentoDelGiorno } from './pages/AllenamentoDelGiorno'
+import { Nutrizione } from './pages/Nutrizione'
+import { Attivita } from './pages/Attivita'
 import { Storico } from './pages/Storico'
 import { SessioneDettaglio } from './pages/SessioneDettaglio'
 import { Schede } from './pages/Schede'
@@ -25,9 +27,11 @@ export function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-svh bg-gray-950">
+      <div className="min-h-svh bg-gray-950 pt-14">
         <Routes>
           <Route path="/" element={<AllenamentoDelGiorno />} />
+          <Route path="/nutrizione" element={<Nutrizione />} />
+          <Route path="/attivita" element={<Attivita />} />
           <Route path="/storico" element={<Storico />} />
           <Route path="/storico/:id" element={<SessioneDettaglio />} />
           <Route path="/schede" element={<Schede />} />

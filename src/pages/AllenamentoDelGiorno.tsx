@@ -236,9 +236,12 @@ export function AllenamentoDelGiorno() {
       {fase === 'riepilogo' && (
         <>
           {proposteInAttesa > 0 && (
-            <div className="rounded-lg border border-yellow-700 bg-yellow-950 p-3 text-sm text-yellow-300">
-              {proposteInAttesa} proposta{proposteInAttesa > 1 ? 'e' : ''} in attesa — approva o rifiuta in Buzz.
-            </div>
+            <Link
+              to="/schede"
+              className="block rounded-lg border border-yellow-700 bg-yellow-950 p-3 text-sm text-yellow-300"
+            >
+              {proposteInAttesa} proposta{proposteInAttesa > 1 ? 'e' : ''} in attesa — vai su Schede per approvare o rifiutare.
+            </Link>
           )}
 
           <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">

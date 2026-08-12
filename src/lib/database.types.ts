@@ -14,6 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
+      allenamento_rilevato: {
+        Row: {
+          battito_max: number | null
+          battito_medio: number | null
+          created_at: string
+          distanza_km: number | null
+          durata_minuti: number | null
+          energia_attiva_kcal: number | null
+          fine: string
+          fonte: string
+          id: string
+          inizio: string
+          tipo: string
+        }
+        Insert: {
+          battito_max?: number | null
+          battito_medio?: number | null
+          created_at?: string
+          distanza_km?: number | null
+          durata_minuti?: number | null
+          energia_attiva_kcal?: number | null
+          fine: string
+          fonte?: string
+          id?: string
+          inizio: string
+          tipo: string
+        }
+        Update: {
+          battito_max?: number | null
+          battito_medio?: number | null
+          created_at?: string
+          distanza_km?: number | null
+          durata_minuti?: number | null
+          energia_attiva_kcal?: number | null
+          fine?: string
+          fonte?: string
+          id?: string
+          inizio?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
+      attivita_giornaliera: {
+        Row: {
+          battito_max: number | null
+          battito_medio: number | null
+          battito_min: number | null
+          battito_riposo: number | null
+          created_at: string
+          data: string
+          distanza_km: number | null
+          energia_attiva_kcal: number | null
+          fonte: string
+          hrv_ms: number | null
+          id: string
+          minuti_esercizio: number | null
+          minuti_movimento: number | null
+          passi: number | null
+          vo2_max: number | null
+        }
+        Insert: {
+          battito_max?: number | null
+          battito_medio?: number | null
+          battito_min?: number | null
+          battito_riposo?: number | null
+          created_at?: string
+          data: string
+          distanza_km?: number | null
+          energia_attiva_kcal?: number | null
+          fonte?: string
+          hrv_ms?: number | null
+          id?: string
+          minuti_esercizio?: number | null
+          minuti_movimento?: number | null
+          passi?: number | null
+          vo2_max?: number | null
+        }
+        Update: {
+          battito_max?: number | null
+          battito_medio?: number | null
+          battito_min?: number | null
+          battito_riposo?: number | null
+          created_at?: string
+          data?: string
+          distanza_km?: number | null
+          energia_attiva_kcal?: number | null
+          fonte?: string
+          hrv_ms?: number | null
+          id?: string
+          minuti_esercizio?: number | null
+          minuti_movimento?: number | null
+          passi?: number | null
+          vo2_max?: number | null
+        }
+        Relationships: []
+      }
+      diario_alimentare: {
+        Row: {
+          carboidrati_g: number | null
+          created_at: string
+          data: string
+          fonte: string
+          grassi_g: number | null
+          id: string
+          kcal: number | null
+          proteine_g: number | null
+        }
+        Insert: {
+          carboidrati_g?: number | null
+          created_at?: string
+          data: string
+          fonte?: string
+          grassi_g?: number | null
+          id?: string
+          kcal?: number | null
+          proteine_g?: number | null
+        }
+        Update: {
+          carboidrati_g?: number | null
+          created_at?: string
+          data?: string
+          fonte?: string
+          grassi_g?: number | null
+          id?: string
+          kcal?: number | null
+          proteine_g?: number | null
+        }
+        Relationships: []
+      }
       intervento_agente: {
         Row: {
           autore_agente: string

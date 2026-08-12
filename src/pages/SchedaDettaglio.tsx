@@ -50,7 +50,9 @@ export function SchedaDettaglio() {
     return <p className="p-4 text-sm text-red-400">{errore ?? 'Scheda non trovata.'}</p>
   }
 
-  const macro = (piano.contenuto as PianoContenutoNutrizione | null)?.macro
+  const contenutoNutrizione = piano.contenuto as PianoContenutoNutrizione | null
+  const macro = contenutoNutrizione?.macro
+  const noteNutrizione = contenutoNutrizione?.note
 
   return (
     <div className="space-y-4 p-4 pb-20">
@@ -101,7 +103,7 @@ export function SchedaDettaglio() {
       )}
 
       {piano.tipo === 'nutrizione' && (
-        <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+        <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900 p-4">
           {!macro && <p className="text-sm text-gray-500">Nessun macro definito.</p>}
           {macro && (
             <dl className="grid grid-cols-2 gap-2 text-sm text-gray-300">
@@ -131,6 +133,23 @@ export function SchedaDettaglio() {
               )}
             </dl>
           )}
+          {macro?.note && <p className="text-sm text-gray-400">{macro.note}</p>}
+          {noteNutrizione && (
+            <div className="border-t border-gray-800 pt-3">
+              <h2 className="mb-1 text-sm font-medium text-gray-400">Note della nutrizionista</h2>
+              <p className="text-sm text-gray-300">{noteNutrizione}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {piano.tipo === 'nutrizione' && (
+        <section className="space-y-1 rounded-xl border border-dashed border-gray-800 p-4">
+          <h2 className="text-sm font-medium text-gray-400">Diario alimentare reale</h2>
+          <p className="text-sm text-gray-500">
+            Non ancora collegato. Quando l'app avrà accesso al diario alimentare da Apple Health, qui vedrai il confronto
+            giorno per giorno tra calorie/macro effettivi e questo target.
+          </p>
         </section>
       )}
 
