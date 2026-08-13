@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../lib/database.types'
 import type { PianoContenutoNutrizione } from '../lib/domain'
+import { BarTrend, PeriodoFiltro, StatTile, TabellaStorico, VistaToggle, media, type Vista } from '../components/charts'
 
 type Piano = Tables<'piano'>
 type DiarioAlimentare = Tables<'diario_alimentare'>
@@ -28,9 +29,13 @@ function Delta({ reale, target, unita }: { reale: number; target: number; unita:
 export function Nutrizione() {
   const [piano, setPiano] = useState<Piano | null>(null)
   const [diario, setDiario] = useState<DiarioAlimentare | null>(null)
+  const [storico, setStorico] = useState<DiarioAlimentare[]>([])
   const [attivita, setAttivita] = useState<AttivitaGiornaliera | null>(null)
   const [loading, setLoading] = useState(true)
+  const [caricandoStorico, setCaricandoStorico] = useState(true)
   const [errore, setErrore] = useState<string | null>(null)
+  const [giorniStorico, setGiorniStorico] = useState(14)
+  const [vista, setVista] = useState<Vista>('grafico')
 
   useEffect(() => {
     async function carica() {
@@ -49,6 +54,22 @@ export function Nutrizione() {
 
     carica()
   }, [])
+
+  useEffect(() => {
+    async function caricaStorico() {
+      setCaricandoStorico(true)
+      const dalGiorno = new Date(Date.now() - giorniStorico * 86_400_000).toISOString().slice(0, 10)
+      const { data, error } = await supabase
+        .from('diario_alimentare')
+        .select('*')
+        .gte('data', dalGiorno)
+        .order('data', { ascending: true })
+      if (!error) setStorico(data ?? [])
+      setCaricandoStorico(false)
+    }
+
+    caricaStorico()
+  }, [giorniStorico])
 
   if (loading) {
     return <p className="p-4 text-gray-400">Carico...</p>
@@ -167,6 +188,52 @@ export function Nutrizione() {
           <Link to="/attivita" className="block border-t border-gray-800 pt-3 text-sm text-gray-400 underline">
             Vedi passi, battito, sonno e resto dell'attività →
           </Link>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900 p-4">
+        <PeriodoFiltro valore={giorniStorico} onCambia={setGiorniStorico} />
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-gray-400">kcal — ultimi {giorniStorico} giorni</h2>
+          <VistaToggle vista={vista} onCambia={setVista} />
+        </div>
+
+        {caricandoStorico && <p className="text-sm text-gray-500">Carico...</p>}
+
+        {!caricandoStorico && vista === 'grafico' && (
+          <BarTrend
+            dati={storico.map((d) => ({ data: d.data, valore: d.kcal }))}
+            target={macro?.kcal}
+            colore="#22c55e"
+          />
+        )}
+
+        {!caricandoStorico && vista === 'tabella' && (
+          <TabellaStorico
+            righe={storico}
+            colonne={[
+              { chiave: 'kcal', etichetta: 'kcal' },
+              { chiave: 'proteine_g', etichetta: 'proteine', unita: 'g' },
+              { chiave: 'carboidrati_g', etichetta: 'carbo', unita: 'g' },
+              { chiave: 'grassi_g', etichetta: 'grassi', unita: 'g' },
+            ]}
+          />
+        )}
+
+        {!caricandoStorico && storico.length > 0 && (
+          <dl className="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
+            <StatTile etichetta="media kcal" valore={media(storico.map((d) => d.kcal)) ?? '—'} />
+            <StatTile etichetta="media proteine" valore={media(storico.map((d) => d.proteine_g)) ?? '—'} unita="g" />
+            <StatTile etichetta="media carbo" valore={media(storico.map((d) => d.carboidrati_g)) ?? '—'} unita="g" />
+            <StatTile etichetta="media grassi" valore={media(storico.map((d) => d.grassi_g)) ?? '—'} unita="g" />
+          </dl>
+        )}
+
+        {!caricandoStorico && storico.length === 0 && (
+          <p className="text-xs text-gray-500">
+            Nessun dato in questo periodo — il grafico si popola man mano che arrivano i dati da Apple Health.
+          </p>
         )}
       </section>
     </div>
