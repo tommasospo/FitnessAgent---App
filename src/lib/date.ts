@@ -17,3 +17,29 @@ export function confiniSettimanaISO(data: Date): { inizio: string; fine: string 
   const fine = d.toISOString().slice(0, 10)
   return { inizio, fine }
 }
+
+function scadenzaPiano(dataAttivazione: string, durataSettimane: number): Date {
+  const scadenza = new Date(dataAttivazione)
+  scadenza.setUTCDate(scadenza.getUTCDate() + durataSettimane * 7)
+  return scadenza
+}
+
+// True se un piano con questa attivazione e durata ha superato la scadenza. Un piano senza
+// durata_settimane o mai attivato non scade mai (torna sempre false).
+export function pianoScaduto(dataAttivazione: string | null, durataSettimane: number | null): boolean {
+  if (!dataAttivazione || !durataSettimane) return false
+  return Date.now() > scadenzaPiano(dataAttivazione, durataSettimane).getTime()
+}
+
+// Settimane mancanti alla scadenza (arrotondate per eccesso, minimo 0 se già scaduto).
+export function settimaneRimanenti(dataAttivazione: string, durataSettimane: number): number {
+  const msRimanenti = scadenzaPiano(dataAttivazione, durataSettimane).getTime() - Date.now()
+  if (msRimanenti <= 0) return 0
+  return Math.ceil(msRimanenti / (7 * 24 * 60 * 60 * 1000))
+}
+
+// Settimana corrente dall'attivazione del piano (1-based, es. "settimana 3").
+export function settimanaCorrenteDelPiano(dataAttivazione: string): number {
+  const msTrascorsi = Date.now() - new Date(dataAttivazione).getTime()
+  return Math.max(1, Math.floor(msTrascorsi / (7 * 24 * 60 * 60 * 1000)) + 1)
+}

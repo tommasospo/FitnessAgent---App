@@ -302,6 +302,7 @@ export type Database = {
           contenuto: Json
           data_attivazione: string | null
           data_creazione: string
+          durata_settimane: number | null
           feedback_utente: string | null
           id: string
           motivazione: string | null
@@ -316,6 +317,7 @@ export type Database = {
           contenuto?: Json
           data_attivazione?: string | null
           data_creazione?: string
+          durata_settimane?: number | null
           feedback_utente?: string | null
           id?: string
           motivazione?: string | null
@@ -330,6 +332,7 @@ export type Database = {
           contenuto?: Json
           data_attivazione?: string | null
           data_creazione?: string
+          durata_settimane?: number | null
           feedback_utente?: string | null
           id?: string
           motivazione?: string | null
@@ -396,24 +399,24 @@ export type Database = {
       sessione_prescritta: {
         Row: {
           created_at: string
-          data_prevista: string
           esercizi: Json
+          giorno_numero: number
           id: string
           piano_id: string
           tipo: Database["public"]["Enums"]["sessione_tipo"]
         }
         Insert: {
           created_at?: string
-          data_prevista: string
           esercizi?: Json
+          giorno_numero: number
           id?: string
           piano_id: string
           tipo: Database["public"]["Enums"]["sessione_tipo"]
         }
         Update: {
           created_at?: string
-          data_prevista?: string
           esercizi?: Json
+          giorno_numero?: number
           id?: string
           piano_id?: string
           tipo?: Database["public"]["Enums"]["sessione_tipo"]

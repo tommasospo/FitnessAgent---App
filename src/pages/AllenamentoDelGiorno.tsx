@@ -10,22 +10,20 @@ import {
   type SerieEseguita,
   type StatoSerie,
 } from '../lib/domain'
-import { confiniSettimanaISO, numeroSettimanaISO } from '../lib/date'
+import { pianoScaduto, settimanaCorrenteDelPiano } from '../lib/date'
 
 type Piano = Tables<'piano'>
 type SessionePrescritta = Tables<'sessione_prescritta'>
 type SessioneEseguita = Tables<'sessione_eseguita'>
 
 const oggi = new Date().toISOString().slice(0, 10)
-const settimana = numeroSettimanaISO(new Date())
-const { inizio: inizioSettimana, fine: fineSettimana } = confiniSettimanaISO(new Date())
 
 type Fase = 'riepilogo' | 'setup_libero' | 'in_corso' | 'nota_esercizio' | 'fine'
 
 export function AllenamentoDelGiorno() {
   const [pianoAllenamento, setPianoAllenamento] = useState<Piano | null>(null)
-  const [sessioneOggi, setSessioneOggi] = useState<SessionePrescritta | null>(null)
-  const [sessioniSettimana, setSessioniSettimana] = useState<SessionePrescritta[]>([])
+  const [prossimaSessione, setProssimaSessione] = useState<SessionePrescritta | null>(null)
+  const [sessioniPiano, setSessioniPiano] = useState<SessionePrescritta[]>([])
   const [logOggi, setLogOggi] = useState<SessioneEseguita | null>(null)
   const [pianoNutrizione, setPianoNutrizione] = useState<Piano | null>(null)
   const [proposteInAttesa, setProposteInAttesa] = useState(0)
@@ -79,24 +77,31 @@ export function AllenamentoDelGiorno() {
       setLogOggi(logOggiRes.data)
 
       if (allenamentoRes.data) {
-        const [{ data: sessione }, { data: settimanaData }] = await Promise.all([
-          supabase
-            .from('sessione_prescritta')
-            .select('*')
-            .eq('piano_id', allenamentoRes.data.id)
-            .eq('data_prevista', oggi)
-            .maybeSingle(),
-          supabase
-            .from('sessione_prescritta')
-            .select('*')
-            .eq('piano_id', allenamentoRes.data.id)
-            .gte('data_prevista', inizioSettimana)
-            .lte('data_prevista', fineSettimana)
-            .order('data_prevista', { ascending: true }),
-        ])
-        setSessioneOggi(sessione)
-        setEsercizi(sessione && isEsercizioArray(sessione.esercizi) ? sessione.esercizi : [])
-        setSessioniSettimana(settimanaData ?? [])
+        const { data: sessioni } = await supabase
+          .from('sessione_prescritta')
+          .select('*')
+          .eq('piano_id', allenamentoRes.data.id)
+          .order('giorno_numero', { ascending: true })
+        const listaSessioni = sessioni ?? []
+        setSessioniPiano(listaSessioni)
+
+        // Non c'è più un calendario fisso: la "prossima sessione" è la prossima nello split
+        // (Giorno 1, 2, 3, ...) dopo quelle già registrate per questo piano, a prescindere da
+        // quando sono state fatte — l'utente sceglie da solo quando allenarsi.
+        let prossima: SessionePrescritta | null = null
+        if (listaSessioni.length > 0) {
+          const { count } = await supabase
+            .from('sessione_eseguita')
+            .select('id', { count: 'exact', head: true })
+            .in(
+              'sessione_prescritta_id',
+              listaSessioni.map((s) => s.id),
+            )
+          const prossimoGiorno = ((count ?? 0) % listaSessioni.length) + 1
+          prossima = listaSessioni.find((s) => s.giorno_numero === prossimoGiorno) ?? null
+        }
+        setProssimaSessione(prossima)
+        setEsercizi(prossima && isEsercizioArray(prossima.esercizi) ? prossima.esercizi : [])
       }
 
       setLoading(false)
@@ -110,7 +115,7 @@ export function AllenamentoDelGiorno() {
     const { data, error } = await supabase
       .from('sessione_eseguita')
       .insert({
-        sessione_prescritta_id: sessioneOggi?.id ?? null,
+        sessione_prescritta_id: prossimaSessione?.id ?? null,
         data_effettiva: oggi,
         saltata: true,
         note_libere: notaSkip || null,
@@ -183,7 +188,7 @@ export function AllenamentoDelGiorno() {
     const { data, error } = await supabase
       .from('sessione_eseguita')
       .insert({
-        sessione_prescritta_id: sessioneOggi?.id ?? null,
+        sessione_prescritta_id: prossimaSessione?.id ?? null,
         data_effettiva: oggi,
         durata_minuti: durataInizio ? Math.round((Date.now() - durataInizio) / 60000) : null,
         rpe_sessione: rpe ? Number(rpe) : null,
@@ -210,14 +215,14 @@ export function AllenamentoDelGiorno() {
 
   const macro = (pianoNutrizione?.contenuto as PianoContenutoNutrizione | null)?.macro
   const inFlusso = fase !== 'riepilogo'
-  const giornoNumero = sessioneOggi ? sessioniSettimana.findIndex((s) => s.id === sessioneOggi.id) + 1 : 0
-  const giornoTotale = sessioniSettimana.length
+  const giornoNumero = prossimaSessione?.giorno_numero ?? 0
+  const giornoTotale = sessioniPiano.length
 
   return (
     <div className="space-y-4 p-4 pb-20">
       <div>
         <h1 className="text-lg font-semibold text-gray-100">Allenamento del giorno</h1>
-        <p className="text-sm text-gray-500">Settimana {settimana}</p>
+        <ProgressoScheda piano={pianoAllenamento} />
       </div>
 
       {errore && <p className="text-sm text-red-400">{errore}</p>}
@@ -264,14 +269,14 @@ export function AllenamentoDelGiorno() {
             ) : (
               <>
                 {!pianoAllenamento && <p className="text-gray-500">Nessun piano di allenamento attivo.</p>}
-                {pianoAllenamento && !sessioneOggi && <p className="text-gray-500">Nessuna sessione prevista per oggi.</p>}
-                {sessioneOggi && (
+                {pianoAllenamento && !prossimaSessione && <p className="text-gray-500">Nessuna sessione nel piano.</p>}
+                {prossimaSessione && (
                   <div className="space-y-2">
                     <p className="text-gray-200 capitalize">
-                      {sessioneOggi.tipo}
+                      {prossimaSessione.tipo}
                       {giornoTotale > 0 && (
                         <span className="ml-2 text-sm text-gray-500 normal-case">
-                          · Giorno {giornoNumero}/{giornoTotale} della settimana
+                          · Giorno {giornoNumero}/{giornoTotale} dello split
                         </span>
                       )}
                     </p>
@@ -296,8 +301,8 @@ export function AllenamentoDelGiorno() {
                 {pianoAllenamento && (
                   <div className="mt-3 space-y-2">
                     <button
-                      onClick={() => (sessioneOggi ? iniziaAllenamento() : setFase('setup_libero'))}
-                      disabled={sessioneOggi ? esercizi.length === 0 : false}
+                      onClick={() => (prossimaSessione ? iniziaAllenamento() : setFase('setup_libero'))}
+                      disabled={prossimaSessione ? esercizi.length === 0 : false}
                       className="w-full rounded-lg bg-green-600 py-2 text-center font-medium text-white disabled:opacity-50"
                     >
                       Inizia allenamento
@@ -413,6 +418,24 @@ export function AllenamentoDelGiorno() {
         />
       )}
     </div>
+  )
+}
+
+/** Sottotitolo della pagina: progresso della scheda attiva ("Settimana X di Y") o "Scaduta". Niente
+ *  da mostrare se non c'è un piano attivo o non ha una durata impostata — non tutte le schede ce
+ *  l'hanno. */
+function ProgressoScheda({ piano }: { piano: Piano | null }) {
+  if (!piano?.data_attivazione || !piano.durata_settimane) return null
+
+  if (pianoScaduto(piano.data_attivazione, piano.durata_settimane)) {
+    return <p className="text-sm font-medium text-red-400">Scheda scaduta</p>
+  }
+
+  const settimanaCorrente = Math.min(settimanaCorrenteDelPiano(piano.data_attivazione), piano.durata_settimane)
+  return (
+    <p className="text-sm text-gray-500">
+      Settimana {settimanaCorrente} di {piano.durata_settimane}
+    </p>
   )
 }
 

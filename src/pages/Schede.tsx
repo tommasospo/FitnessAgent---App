@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../lib/database.types'
+import { pianoScaduto, settimaneRimanenti } from '../lib/date'
 
 type Piano = Tables<'piano'>
 
@@ -62,10 +63,29 @@ export function Schede() {
                 </span>
               </div>
               {p.motivazione && <p className="mt-1 text-gray-500">{p.motivazione}</p>}
+              <BadgeScadenza piano={p} />
             </Link>
           </li>
         ))}
       </ul>
     </div>
+  )
+}
+
+/** Solo per piani attivi con una durata impostata: quante settimane mancano, o "Scaduta" se il
+ *  tempo è finito. Un piano senza durata_settimane non ha mai questo badge — non tutte le schede
+ *  hanno pensata una scadenza. */
+function BadgeScadenza({ piano }: { piano: Piano }) {
+  if (piano.stato !== 'attivo' || !piano.data_attivazione || !piano.durata_settimane) return null
+
+  if (pianoScaduto(piano.data_attivazione, piano.durata_settimane)) {
+    return <p className="mt-1 text-xs font-medium text-red-400">Scaduta</p>
+  }
+
+  const rimanenti = settimaneRimanenti(piano.data_attivazione, piano.durata_settimane)
+  return (
+    <p className="mt-1 text-xs text-gray-500">
+      {rimanenti} settiman{rimanenti === 1 ? 'a' : 'e'} rimanent{rimanenti === 1 ? 'e' : 'i'} di {piano.durata_settimane}
+    </p>
   )
 }

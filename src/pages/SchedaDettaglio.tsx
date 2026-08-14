@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../lib/database.types'
 import { isEsercizioArray, type PianoContenutoNutrizione } from '../lib/domain'
+import { pianoScaduto, settimaneRimanenti } from '../lib/date'
 
 type Piano = Tables<'piano'>
 type SessionePrescritta = Tables<'sessione_prescritta'>
@@ -32,7 +33,7 @@ export function SchedaDettaglio() {
           .from('sessione_prescritta')
           .select('*')
           .eq('piano_id', p.id)
-          .order('data_prevista', { ascending: true })
+          .order('giorno_numero', { ascending: true })
         if (!errSessioni) setSessioni(s)
       }
 
@@ -64,6 +65,7 @@ export function SchedaDettaglio() {
       </h1>
       <p className={piano.stato === 'attivo' ? 'text-sm text-green-400' : 'text-sm text-gray-500'}>{piano.stato}</p>
       {piano.motivazione && <p className="text-sm text-gray-400">{piano.motivazione}</p>}
+      <InfoDurata piano={piano} />
 
       {piano.stato === 'proposta' && (
         <div className="space-y-2">
@@ -80,7 +82,7 @@ export function SchedaDettaglio() {
           {sessioni.map((s) => (
             <div key={s.id} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
               <h2 className="mb-2 text-sm font-medium text-gray-400">
-                {s.data_prevista} · {s.tipo}
+                Giorno {s.giorno_numero} · {s.tipo}
               </h2>
               {isEsercizioArray(s.esercizi) && s.esercizi.length > 0 ? (
                 <ul className="space-y-1 text-sm text-gray-300">
@@ -155,6 +157,27 @@ export function SchedaDettaglio() {
 
       <FeedbackScheda pianoId={piano.id} valoreIniziale={piano.feedback_utente ?? ''} />
     </div>
+  )
+}
+
+/** Durata del piano e, se attivo, quanto manca alla scadenza — o l'etichetta "Scaduta". Solo
+ *  informativo: la scadenza non cambia mai da sola lo stato del piano (vedi AttivaPiano). */
+function InfoDurata({ piano }: { piano: Piano }) {
+  if (!piano.durata_settimane) return null
+
+  if (piano.stato !== 'attivo' || !piano.data_attivazione) {
+    return <p className="text-sm text-gray-500">Durata prevista: {piano.durata_settimane} settimane</p>
+  }
+
+  if (pianoScaduto(piano.data_attivazione, piano.durata_settimane)) {
+    return <p className="text-sm font-medium text-red-400">Scaduta</p>
+  }
+
+  const rimanenti = settimaneRimanenti(piano.data_attivazione, piano.durata_settimane)
+  return (
+    <p className="text-sm text-gray-500">
+      {rimanenti} settiman{rimanenti === 1 ? 'a' : 'e'} rimanent{rimanenti === 1 ? 'e' : 'i'} di {piano.durata_settimane}
+    </p>
   )
 }
 
