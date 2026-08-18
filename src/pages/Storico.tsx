@@ -65,7 +65,8 @@ function UltimiAllenamenti({ sessioni }: { sessioni: SessioneEseguita[] }) {
                   {s.data_effettiva} {s.saltata && <span className="text-gray-500">(saltata)</span>}
                 </span>
                 <span className="text-gray-500">
-                  {s.durata_minuti ? `${s.durata_minuti} min` : ''} {s.rpe_sessione ? `· RPE ${s.rpe_sessione}` : ''}
+                  {s.durata_minuti ? `${s.durata_minuti} min` : ''} {s.distanza_km ? `· ${s.distanza_km} km` : ''}{' '}
+                  {s.rpe_sessione ? `· RPE ${s.rpe_sessione}` : ''}
                 </span>
               </div>
               {s.note_libere && <p className="mt-1 text-gray-500">{s.note_libere}</p>}

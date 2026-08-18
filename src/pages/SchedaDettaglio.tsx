@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../lib/database.types'
-import { isEsercizioArray, type PianoContenutoNutrizione } from '../lib/domain'
+import { isEsercizioArray, type EsercizioPrescritto, type PianoContenutoNutrizione } from '../lib/domain'
 import { pianoScaduto, settimaneRimanenti } from '../lib/date'
+import { BadgeTecnica } from '../components/BadgeTecnica'
 
 type Piano = Tables<'piano'>
 type SessionePrescritta = Tables<'sessione_prescritta'>
@@ -81,23 +82,18 @@ export function SchedaDettaglio() {
           {sessioni.length === 0 && <p className="text-sm text-gray-500">Nessuna sessione prescritta.</p>}
           {sessioni.map((s) => (
             <div key={s.id} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-              <h2 className="mb-2 text-sm font-medium text-gray-400">
+              <h2 className="mb-2 text-sm font-medium capitalize text-gray-400">
                 Giorno {s.giorno_numero} · {s.tipo}
               </h2>
-              {isEsercizioArray(s.esercizi) && s.esercizi.length > 0 ? (
-                <ul className="space-y-1 text-sm text-gray-300">
-                  {s.esercizi.map((es, i) => (
-                    <li key={i} className="flex justify-between border-b border-gray-800 py-1">
-                      <span>{es.nome}</span>
-                      <span className="text-gray-500">
-                        {es.serie}×{es.ripetizioni ? `${es.ripetizioni} rip` : `${es.secondi}s`}
-                        {es.carico ? ` @ ${es.carico}kg` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+              <InfoIntensita sessione={s} />
+              {s.tipo === 'palestra' ? (
+                isEsercizioArray(s.esercizi) && s.esercizi.length > 0 ? (
+                  <ListaEsercizi esercizi={s.esercizi} />
+                ) : (
+                  <p className="text-sm text-gray-500">Nessun dettaglio esercizi.</p>
+                )
               ) : (
-                <p className="text-sm text-gray-500">Nessun dettaglio esercizi.</p>
+                <DettaglioCardio sessione={s} />
               )}
             </div>
           ))}
@@ -328,6 +324,90 @@ function DeclinaProposta({ piano, onCambiato }: { piano: Piano; onCambiato: (pia
         </div>
       )}
     </section>
+  )
+}
+
+/** Zona di frequenza cardiaca per l'intensità — in scheda, non solo detta a voce in chat. */
+function InfoIntensita({ sessione }: { sessione: SessionePrescritta }) {
+  if (!sessione.zona_frequenza_cardiaca) return null
+  return (
+    <p className="mb-2 inline-block rounded-full border border-red-800 bg-red-950/30 px-2 py-0.5 text-xs text-red-300">
+      ♥ {sessione.zona_frequenza_cardiaca}
+    </p>
+  )
+}
+
+/** Sessioni non da palestra (corsa/nuoto/bici/altro) non hanno un elenco esercizi: mostra durata e
+ *  distanza suggerite, se ci sono — tutte facoltative, un'indicazione generica ("una corsa a
+ *  settimana", senza tempi) è una prescrizione legittima, non un dato mancante. */
+function DettaglioCardio({ sessione }: { sessione: SessionePrescritta }) {
+  const haDettagli = sessione.durata_minuti_suggerita || sessione.distanza_km_suggerita || sessione.note
+  if (!haDettagli) {
+    return <p className="text-sm text-gray-500">Nessun dettaglio specifico — quando vuoi e come vuoi.</p>
+  }
+  return (
+    <div className="space-y-1 text-sm text-gray-300">
+      {(sessione.durata_minuti_suggerita || sessione.distanza_km_suggerita) && (
+        <p className="text-gray-500">
+          {sessione.durata_minuti_suggerita ? `${sessione.durata_minuti_suggerita} min` : ''}
+          {sessione.durata_minuti_suggerita && sessione.distanza_km_suggerita ? ' · ' : ''}
+          {sessione.distanza_km_suggerita ? `${sessione.distanza_km_suggerita} km` : ''}
+        </p>
+      )}
+      {sessione.note && <p>{sessione.note}</p>}
+    </div>
+  )
+}
+
+function rigaEsercizio(es: EsercizioPrescritto) {
+  return (
+    <span className="text-gray-500">
+      {es.serie}×{es.ripetizioni ? `${es.ripetizioni} rip` : `${es.secondi}s`}
+      {es.carico ? ` @ ${es.carico}kg` : ''}
+    </span>
+  )
+}
+
+/** Elenca gli esercizi di una sessione. Esercizi consecutivi con tecnica 'superset' vengono
+ *  raggruppati in un unico blocco: l'adiacenza nell'ordine scritto dal PT è già il segnale di
+ *  quali esercizi vanno a coppia (o terzetto), non serve un id di gruppo esplicito nello schema. */
+function ListaEsercizi({ esercizi }: { esercizi: EsercizioPrescritto[] }) {
+  const gruppi: EsercizioPrescritto[][] = []
+  for (const es of esercizi) {
+    const ultimo = gruppi[gruppi.length - 1]
+    if (es.tecnica === 'superset' && ultimo?.[0]?.tecnica === 'superset') {
+      ultimo.push(es)
+    } else {
+      gruppi.push([es])
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {gruppi.map((gruppo, i) =>
+        gruppo.length > 1 ? (
+          <div key={i} className="rounded-lg border border-blue-800 bg-blue-950/20 p-2">
+            <BadgeTecnica tecnica="superset" />
+            <ul className="mt-1 space-y-1 text-sm text-gray-300">
+              {gruppo.map((es, j) => (
+                <li key={j} className="flex justify-between py-0.5">
+                  <span>{es.nome}</span>
+                  {rigaEsercizio(es)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div key={i} className="flex justify-between border-b border-gray-800 py-1 text-sm text-gray-300">
+            <span className="flex items-center gap-1.5">
+              {gruppo[0].nome}
+              <BadgeTecnica tecnica={gruppo[0].tecnica} />
+            </span>
+            {rigaEsercizio(gruppo[0])}
+          </div>
+        ),
+      )}
+    </div>
   )
 }
 

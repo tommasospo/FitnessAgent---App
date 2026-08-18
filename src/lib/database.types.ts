@@ -212,6 +212,33 @@ export type Database = {
         }
         Relationships: []
       }
+      memoria_persona: {
+        Row: {
+          autore_agente: string
+          categoria: Database["public"]["Enums"]["memoria_categoria"]
+          contenuto: string
+          created_at: string
+          id: string
+          pubkey_persona: string
+        }
+        Insert: {
+          autore_agente: string
+          categoria: Database["public"]["Enums"]["memoria_categoria"]
+          contenuto: string
+          created_at?: string
+          id?: string
+          pubkey_persona: string
+        }
+        Update: {
+          autore_agente?: string
+          categoria?: Database["public"]["Enums"]["memoria_categoria"]
+          contenuto?: string
+          created_at?: string
+          id?: string
+          pubkey_persona?: string
+        }
+        Relationships: []
+      }
       metrica_corporea: {
         Row: {
           created_at: string
@@ -352,10 +379,47 @@ export type Database = {
           },
         ]
       }
+      profilo_utente: {
+        Row: {
+          allergie_intolleranze: string | null
+          altezza_cm: number | null
+          data_nascita: string | null
+          id: string
+          infortuni_pregressi: string | null
+          livello_esperienza: string | null
+          note: string | null
+          sesso: string | null
+          updated_at: string
+        }
+        Insert: {
+          allergie_intolleranze?: string | null
+          altezza_cm?: number | null
+          data_nascita?: string | null
+          id?: string
+          infortuni_pregressi?: string | null
+          livello_esperienza?: string | null
+          note?: string | null
+          sesso?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allergie_intolleranze?: string | null
+          altezza_cm?: number | null
+          data_nascita?: string | null
+          id?: string
+          infortuni_pregressi?: string | null
+          livello_esperienza?: string | null
+          note?: string | null
+          sesso?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sessione_eseguita: {
         Row: {
           created_at: string
           data_effettiva: string
+          distanza_km: number | null
           durata_minuti: number | null
           id: string
           note_libere: string | null
@@ -367,6 +431,7 @@ export type Database = {
         Insert: {
           created_at?: string
           data_effettiva?: string
+          distanza_km?: number | null
           durata_minuti?: number | null
           id?: string
           note_libere?: string | null
@@ -378,6 +443,7 @@ export type Database = {
         Update: {
           created_at?: string
           data_effettiva?: string
+          distanza_km?: number | null
           durata_minuti?: number | null
           id?: string
           note_libere?: string | null
@@ -399,27 +465,39 @@ export type Database = {
       sessione_prescritta: {
         Row: {
           created_at: string
+          distanza_km_suggerita: number | null
+          durata_minuti_suggerita: number | null
           esercizi: Json
           giorno_numero: number
           id: string
+          note: string | null
           piano_id: string
           tipo: Database["public"]["Enums"]["sessione_tipo"]
+          zona_frequenza_cardiaca: string | null
         }
         Insert: {
           created_at?: string
+          distanza_km_suggerita?: number | null
+          durata_minuti_suggerita?: number | null
           esercizi?: Json
           giorno_numero: number
           id?: string
+          note?: string | null
           piano_id: string
           tipo: Database["public"]["Enums"]["sessione_tipo"]
+          zona_frequenza_cardiaca?: string | null
         }
         Update: {
           created_at?: string
+          distanza_km_suggerita?: number | null
+          durata_minuti_suggerita?: number | null
           esercizi?: Json
           giorno_numero?: number
           id?: string
+          note?: string | null
           piano_id?: string
           tipo?: Database["public"]["Enums"]["sessione_tipo"]
+          zona_frequenza_cardiaca?: string | null
         }
         Relationships: [
           {
@@ -440,12 +518,18 @@ export type Database = {
     }
     Enums: {
       intervento_tipo: "check_settimanale" | "anomalia" | "chiarimento"
+      memoria_categoria:
+        | "vincolo_fisico"
+        | "preferenza"
+        | "contesto_vita"
+        | "stile_comunicazione"
+        | "altro"
       metrica_tipo: "peso" | "circonferenza" | "massa_grassa" | "altro"
       obiettivo_stato: "attivo" | "raggiunto" | "abbandonato" | "interrotto"
       obiettivo_tipo: "evento" | "metrica" | "abitudine"
       piano_stato: "proposta" | "attivo" | "archiviato"
       piano_tipo: "allenamento" | "nutrizione"
-      sessione_tipo: "palestra" | "corsa" | "nuoto" | "altro"
+      sessione_tipo: "palestra" | "corsa" | "nuoto" | "altro" | "bici"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -574,12 +658,19 @@ export const Constants = {
   public: {
     Enums: {
       intervento_tipo: ["check_settimanale", "anomalia", "chiarimento"],
+      memoria_categoria: [
+        "vincolo_fisico",
+        "preferenza",
+        "contesto_vita",
+        "stile_comunicazione",
+        "altro",
+      ],
       metrica_tipo: ["peso", "circonferenza", "massa_grassa", "altro"],
       obiettivo_stato: ["attivo", "raggiunto", "abbandonato", "interrotto"],
       obiettivo_tipo: ["evento", "metrica", "abitudine"],
       piano_stato: ["proposta", "attivo", "archiviato"],
       piano_tipo: ["allenamento", "nutrizione"],
-      sessione_tipo: ["palestra", "corsa", "nuoto", "altro"],
+      sessione_tipo: ["palestra", "corsa", "nuoto", "altro", "bici"],
     },
   },
 } as const

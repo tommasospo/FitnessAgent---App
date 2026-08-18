@@ -54,6 +54,7 @@ export function SessioneDettaglio() {
       </h1>
       <p className="text-sm text-gray-500">
         {sessione.durata_minuti ? `${sessione.durata_minuti} min` : ''}
+        {sessione.distanza_km ? ` · ${sessione.distanza_km} km` : ''}
         {sessione.rpe_sessione ? ` · RPE ${sessione.rpe_sessione}` : ''}
       </p>
       {sessione.note_libere && <p className="text-sm text-gray-400">{sessione.note_libere}</p>}

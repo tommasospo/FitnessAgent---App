@@ -8,6 +8,7 @@ import { Storico } from './pages/Storico'
 import { SessioneDettaglio } from './pages/SessioneDettaglio'
 import { Schede } from './pages/Schede'
 import { SchedaDettaglio } from './pages/SchedaDettaglio'
+import { Profilo } from './pages/Profilo'
 import { NavBar } from './components/NavBar'
 
 export function App() {
@@ -36,6 +37,7 @@ export function App() {
           <Route path="/storico/:id" element={<SessioneDettaglio />} />
           <Route path="/schede" element={<Schede />} />
           <Route path="/schede/:id" element={<SchedaDettaglio />} />
+          <Route path="/profilo" element={<Profilo />} />
         </Routes>
         <NavBar />
       </div>

@@ -11,6 +11,7 @@ import {
   type StatoSerie,
 } from '../lib/domain'
 import { pianoScaduto, settimanaCorrenteDelPiano } from '../lib/date'
+import { BadgeTecnica } from '../components/BadgeTecnica'
 
 type Piano = Tables<'piano'>
 type SessionePrescritta = Tables<'sessione_prescritta'>
@@ -18,11 +19,12 @@ type SessioneEseguita = Tables<'sessione_eseguita'>
 
 const oggi = new Date().toISOString().slice(0, 10)
 
-type Fase = 'riepilogo' | 'setup_libero' | 'in_corso' | 'nota_esercizio' | 'fine'
+type Fase = 'riepilogo' | 'setup_libero' | 'in_corso' | 'nota_esercizio' | 'fine' | 'cardio'
 
 export function AllenamentoDelGiorno() {
   const [pianoAllenamento, setPianoAllenamento] = useState<Piano | null>(null)
   const [prossimaSessione, setProssimaSessione] = useState<SessionePrescritta | null>(null)
+  const [sessioneScelta, setSessioneScelta] = useState<SessionePrescritta | null>(null)
   const [sessioniPiano, setSessioniPiano] = useState<SessionePrescritta[]>([])
   const [logOggi, setLogOggi] = useState<SessioneEseguita | null>(null)
   const [pianoNutrizione, setPianoNutrizione] = useState<Piano | null>(null)
@@ -42,6 +44,8 @@ export function AllenamentoDelGiorno() {
   const [espansoIdx, setEspansoIdx] = useState<number | null>(null)
   const [noteEsercizio, setNoteEsercizio] = useState('')
   const [noteSessione, setNoteSessione] = useState('')
+  const [durataCardio, setDurataCardio] = useState('')
+  const [distanzaCardio, setDistanzaCardio] = useState('')
   const [rpe, setRpe] = useState('')
   const [durataInizio, setDurataInizio] = useState<number | null>(null)
   const [salvataggio, setSalvataggio] = useState(false)
@@ -101,6 +105,7 @@ export function AllenamentoDelGiorno() {
           prossima = listaSessioni.find((s) => s.giorno_numero === prossimoGiorno) ?? null
         }
         setProssimaSessione(prossima)
+        setSessioneScelta(prossima)
         setEsercizi(prossima && isEsercizioArray(prossima.esercizi) ? prossima.esercizi : [])
       }
 
@@ -110,12 +115,17 @@ export function AllenamentoDelGiorno() {
     carica()
   }, [])
 
+  function scegliSessione(sessione: SessionePrescritta) {
+    setSessioneScelta(sessione)
+    setEsercizi(isEsercizioArray(sessione.esercizi) ? sessione.esercizi : [])
+  }
+
   async function confermaSkip() {
     setSalvandoSkip(true)
     const { data, error } = await supabase
       .from('sessione_eseguita')
       .insert({
-        sessione_prescritta_id: prossimaSessione?.id ?? null,
+        sessione_prescritta_id: sessioneScelta?.id ?? null,
         data_effettiva: oggi,
         saltata: true,
         note_libere: notaSkip || null,
@@ -141,15 +151,15 @@ export function AllenamentoDelGiorno() {
     setFase('in_corso')
   }
 
-  function registraSerie(stato: StatoSerie) {
+  function registraSerie(stato: StatoSerie, valori: { ripetizioni?: number; secondi?: number; carico?: number }) {
     const esercizio = esercizi[esercizioIdx]
     const serie: SerieEseguita = {
       serie_n: serieIdx + 1,
       ripetizioni_target: esercizio.ripetizioni,
-      ripetizioni_fatte: stato === 'fatto' ? (esercizio.ripetizioni ?? null) : null,
+      ripetizioni_fatte: stato !== 'skip' ? (valori.ripetizioni ?? esercizio.ripetizioni ?? null) : null,
       secondi_target: esercizio.secondi,
-      secondi_fatti: stato === 'fatto' ? (esercizio.secondi ?? null) : null,
-      carico: esercizio.carico,
+      secondi_fatti: stato !== 'skip' ? (valori.secondi ?? esercizio.secondi ?? null) : null,
+      carico: stato !== 'skip' ? (valori.carico ?? esercizio.carico) : esercizio.carico,
       stato,
     }
     const nuoveSerie = [...serieCorrente, serie]
@@ -188,12 +198,41 @@ export function AllenamentoDelGiorno() {
     const { data, error } = await supabase
       .from('sessione_eseguita')
       .insert({
-        sessione_prescritta_id: prossimaSessione?.id ?? null,
+        sessione_prescritta_id: sessioneScelta?.id ?? null,
         data_effettiva: oggi,
         durata_minuti: durataInizio ? Math.round((Date.now() - durataInizio) / 60000) : null,
         rpe_sessione: rpe ? Number(rpe) : null,
         note_libere: noteSessione || null,
         serie_eseguite: risultati as unknown as Tables<'sessione_eseguita'>['serie_eseguite'],
+      })
+      .select('*')
+      .single()
+
+    setSalvataggio(false)
+
+    if (error) {
+      setErroreSalvataggio(error.message)
+      return
+    }
+
+    setLogOggi(data)
+    setFase('riepilogo')
+  }
+
+  async function terminaCardio() {
+    setSalvataggio(true)
+    setErroreSalvataggio(null)
+
+    const { data, error } = await supabase
+      .from('sessione_eseguita')
+      .insert({
+        sessione_prescritta_id: sessioneScelta?.id ?? null,
+        data_effettiva: oggi,
+        durata_minuti: durataCardio ? Number(durataCardio) : null,
+        distanza_km: distanzaCardio ? Number(distanzaCardio) : null,
+        rpe_sessione: rpe ? Number(rpe) : null,
+        note_libere: noteSessione || null,
+        serie_eseguite: [],
       })
       .select('*')
       .single()
@@ -215,7 +254,7 @@ export function AllenamentoDelGiorno() {
 
   const macro = (pianoNutrizione?.contenuto as PianoContenutoNutrizione | null)?.macro
   const inFlusso = fase !== 'riepilogo'
-  const giornoNumero = prossimaSessione?.giorno_numero ?? 0
+  const giornoNumero = sessioneScelta?.giorno_numero ?? 0
   const giornoTotale = sessioniPiano.length
 
   return (
@@ -227,7 +266,7 @@ export function AllenamentoDelGiorno() {
 
       {errore && <p className="text-sm text-red-400">{errore}</p>}
 
-      {inFlusso && fase !== 'setup_libero' && (
+      {inFlusso && fase !== 'setup_libero' && fase !== 'cardio' && (
         <ProgressoEsercizi
           esercizi={esercizi}
           risultati={risultati}
@@ -269,31 +308,60 @@ export function AllenamentoDelGiorno() {
             ) : (
               <>
                 {!pianoAllenamento && <p className="text-gray-500">Nessun piano di allenamento attivo.</p>}
-                {pianoAllenamento && !prossimaSessione && <p className="text-gray-500">Nessuna sessione nel piano.</p>}
-                {prossimaSessione && (
+                {pianoAllenamento && !sessioneScelta && <p className="text-gray-500">Nessuna sessione nel piano.</p>}
+
+                {sessioniPiano.length > 1 && (
+                  <SelettoreGiorno
+                    sessioni={sessioniPiano}
+                    consigliataId={prossimaSessione?.id ?? null}
+                    scelteId={sessioneScelta?.id ?? null}
+                    onScegli={scegliSessione}
+                  />
+                )}
+
+                {sessioneScelta && (
                   <div className="space-y-2">
                     <p className="text-gray-200 capitalize">
-                      {prossimaSessione.tipo}
+                      {sessioneScelta.tipo}
                       {giornoTotale > 0 && (
                         <span className="ml-2 text-sm text-gray-500 normal-case">
                           · Giorno {giornoNumero}/{giornoTotale} dello split
                         </span>
                       )}
                     </p>
-                    {esercizi.length > 0 ? (
-                      <ul className="space-y-1 text-sm text-gray-300">
-                        {esercizi.map((es, i) => (
-                          <li key={i} className="flex justify-between border-b border-gray-800 py-1">
-                            <span>{es.nome}</span>
-                            <span className="text-gray-500">
-                              {es.serie}×{es.ripetizioni ? `${es.ripetizioni} rip` : `${es.secondi}s`}
-                              {es.carico ? ` @ ${es.carico}kg` : ''}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                    {sessioneScelta.zona_frequenza_cardiaca && (
+                      <p className="inline-block rounded-full border border-red-800 bg-red-950/30 px-2 py-0.5 text-xs text-red-300">
+                        ♥ {sessioneScelta.zona_frequenza_cardiaca}
+                      </p>
+                    )}
+                    {sessioneScelta.tipo === 'palestra' ? (
+                      esercizi.length > 0 ? (
+                        <ul className="space-y-1 text-sm text-gray-300">
+                          {esercizi.map((es, i) => (
+                            <li key={i} className="flex justify-between border-b border-gray-800 py-1">
+                              <span className="flex items-center gap-1.5">
+                                {es.nome}
+                                <BadgeTecnica tecnica={es.tecnica} />
+                              </span>
+                              <span className="text-gray-500">
+                                {es.serie}×{es.ripetizioni ? `${es.ripetizioni} rip` : `${es.secondi}s`}
+                                {es.carico ? ` @ ${es.carico}kg` : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-500 text-sm">Nessun dettaglio esercizi.</p>
+                      )
+                    ) : sessioneScelta.durata_minuti_suggerita || sessioneScelta.distanza_km_suggerita || sessioneScelta.note ? (
+                      <p className="text-sm text-gray-300">
+                        {sessioneScelta.durata_minuti_suggerita ? `${sessioneScelta.durata_minuti_suggerita} min` : ''}
+                        {sessioneScelta.durata_minuti_suggerita && sessioneScelta.distanza_km_suggerita ? ' · ' : ''}
+                        {sessioneScelta.distanza_km_suggerita ? `${sessioneScelta.distanza_km_suggerita} km` : ''}
+                        {sessioneScelta.note && <span className="block text-gray-500">{sessioneScelta.note}</span>}
+                      </p>
                     ) : (
-                      <p className="text-gray-500 text-sm">Nessun dettaglio esercizi.</p>
+                      <p className="text-gray-500 text-sm">Nessun dettaglio specifico — quando vuoi e come vuoi.</p>
                     )}
                   </div>
                 )}
@@ -301,8 +369,14 @@ export function AllenamentoDelGiorno() {
                 {pianoAllenamento && (
                   <div className="mt-3 space-y-2">
                     <button
-                      onClick={() => (prossimaSessione ? iniziaAllenamento() : setFase('setup_libero'))}
-                      disabled={prossimaSessione ? esercizi.length === 0 : false}
+                      onClick={() =>
+                        !sessioneScelta
+                          ? setFase('setup_libero')
+                          : sessioneScelta.tipo === 'palestra'
+                            ? iniziaAllenamento()
+                            : setFase('cardio')
+                      }
+                      disabled={sessioneScelta ? sessioneScelta.tipo === 'palestra' && esercizi.length === 0 : false}
                       className="w-full rounded-lg bg-green-600 py-2 text-center font-medium text-white disabled:opacity-50"
                     >
                       Inizia allenamento
@@ -389,6 +463,7 @@ export function AllenamentoDelGiorno() {
 
       {fase === 'in_corso' && (
         <GuidedRunner
+          key={`${esercizioIdx}-${serieIdx}`}
           esercizio={esercizi[esercizioIdx]}
           esercizioNumero={esercizioIdx + 1}
           esercizioTotale={esercizi.length}
@@ -417,6 +492,22 @@ export function AllenamentoDelGiorno() {
           onTermina={termina}
         />
       )}
+
+      {fase === 'cardio' && (
+        <CardioLogPrompt
+          durata={durataCardio}
+          onCambiaDurata={setDurataCardio}
+          distanza={distanzaCardio}
+          onCambiaDistanza={setDistanzaCardio}
+          note={noteSessione}
+          onCambiaNote={setNoteSessione}
+          rpe={rpe}
+          onCambiaRpe={setRpe}
+          salvataggio={salvataggio}
+          errore={erroreSalvataggio}
+          onTermina={terminaCardio}
+        />
+      )}
     </div>
   )
 }
@@ -436,6 +527,39 @@ function ProgressoScheda({ piano }: { piano: Piano | null }) {
     <p className="text-sm text-gray-500">
       Settimana {settimanaCorrente} di {piano.durata_settimane}
     </p>
+  )
+}
+
+/** Lascia scegliere quale giorno dello split allenarsi oggi — l'utente non è vincolato all'ordine
+ *  1,2,3... proposto dal conteggio automatico, solo guidato verso di esso con un'etichetta. */
+function SelettoreGiorno({
+  sessioni,
+  consigliataId,
+  scelteId,
+  onScegli,
+}: {
+  sessioni: SessionePrescritta[]
+  consigliataId: string | null
+  scelteId: string | null
+  onScegli: (sessione: SessionePrescritta) => void
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {sessioni.map((s) => (
+        <button
+          key={s.id}
+          onClick={() => onScegli(s)}
+          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs capitalize ${
+            s.id === scelteId
+              ? 'border-green-600 bg-green-950 text-green-300'
+              : 'border-gray-700 bg-gray-900 text-gray-400'
+          }`}
+        >
+          Giorno {s.giorno_numero} · {s.tipo}
+          {s.id === consigliataId && <span className="ml-1 text-gray-500">(prossima)</span>}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -496,7 +620,10 @@ function ProgressoEsercizi({
 
       {rigaEspansa && (
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-3 text-sm">
-          <p className="font-medium text-gray-200">{rigaEspansa.esercizio.nome}</p>
+          <p className="flex items-center gap-1.5 font-medium text-gray-200">
+            {rigaEspansa.esercizio.nome}
+            <BadgeTecnica tecnica={rigaEspansa.esercizio.tecnica} />
+          </p>
           <p className="text-gray-500">
             {rigaEspansa.esercizio.serie}×
             {rigaEspansa.esercizio.ripetizioni ? `${rigaEspansa.esercizio.ripetizioni} rip` : `${rigaEspansa.esercizio.secondi}s`}
@@ -631,34 +758,83 @@ function GuidedRunner({
   esercizioNumero: number
   esercizioTotale: number
   serieNumero: number
-  onEsito: (stato: StatoSerie) => void
+  onEsito: (stato: StatoSerie, valori: { ripetizioni?: number; secondi?: number; carico?: number }) => void
 }) {
+  const [ripetizioni, setRipetizioni] = useState(esercizio.ripetizioni ?? '')
+  const [secondi, setSecondi] = useState(esercizio.secondi ?? '')
+  const [carico, setCarico] = useState(esercizio.carico ?? '')
+
+  function esito(stato: StatoSerie) {
+    onEsito(stato, {
+      ripetizioni: ripetizioni === '' ? undefined : Number(ripetizioni),
+      secondi: secondi === '' ? undefined : Number(secondi),
+      carico: carico === '' ? undefined : Number(carico),
+    })
+  }
+
   return (
     <section className="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
       <p className="text-sm text-gray-500">
         Esercizio {esercizioNumero} di {esercizioTotale}
       </p>
-      <h2 className="text-xl font-semibold text-gray-100">{esercizio.nome}</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-gray-100">{esercizio.nome}</h2>
+        <BadgeTecnica tecnica={esercizio.tecnica} />
+      </div>
       <p className="text-sm text-gray-500">
         Serie {serieNumero} di {esercizio.serie}
       </p>
-      <p className="text-2xl text-gray-200">
-        {esercizio.ripetizioni ? `${esercizio.ripetizioni} ripetizioni` : `${esercizio.secondi} secondi`}
+      <p className="text-sm text-gray-500">
+        Previsti: {esercizio.ripetizioni ? `${esercizio.ripetizioni} ripetizioni` : `${esercizio.secondi} secondi`}
         {esercizio.carico ? ` @ ${esercizio.carico}kg` : ''}
       </p>
 
+      <div className="flex gap-2">
+        {esercizio.ripetizioni !== undefined && (
+          <label className="flex-1 text-xs text-gray-500">
+            ripetizioni fatte
+            <input
+              type="number"
+              value={ripetizioni}
+              onChange={(e) => setRipetizioni(e.target.value ? Number(e.target.value) : '')}
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-800 px-2 py-2 text-lg text-gray-100"
+            />
+          </label>
+        )}
+        {esercizio.secondi !== undefined && (
+          <label className="flex-1 text-xs text-gray-500">
+            secondi fatti
+            <input
+              type="number"
+              value={secondi}
+              onChange={(e) => setSecondi(e.target.value ? Number(e.target.value) : '')}
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-800 px-2 py-2 text-lg text-gray-100"
+            />
+          </label>
+        )}
+        <label className="flex-1 text-xs text-gray-500">
+          carico usato (kg)
+          <input
+            type="number"
+            value={carico}
+            onChange={(e) => setCarico(e.target.value ? Number(e.target.value) : '')}
+            className="mt-1 w-full rounded border border-gray-700 bg-gray-800 px-2 py-2 text-lg text-gray-100"
+          />
+        </label>
+      </div>
+
       <div className="grid grid-cols-1 gap-2 pt-2">
-        <button onClick={() => onEsito('fatto')} className="w-full rounded-lg bg-green-600 py-3 font-medium text-white">
+        <button onClick={() => esito('fatto')} className="w-full rounded-lg bg-green-600 py-3 font-medium text-white">
           Fatto
         </button>
         <button
-          onClick={() => onEsito('cedimento')}
+          onClick={() => esito('cedimento')}
           className="w-full rounded-lg border border-yellow-700 py-3 font-medium text-yellow-400"
         >
           Cedimento
         </button>
         <button
-          onClick={() => onEsito('skip')}
+          onClick={() => esito('skip')}
           className="w-full rounded-lg border border-dashed border-gray-700 py-3 text-gray-400"
         >
           Skip
@@ -695,6 +871,81 @@ function EsercizioNotePrompt({
       </div>
       <button onClick={onContinua} className="w-full rounded-lg bg-green-600 py-2 font-medium text-white">
         Continua
+      </button>
+    </section>
+  )
+}
+
+/** Log per sessioni non da palestra (corsa/nuoto/bici/altro): niente serie guidate — l'utente registra
+ *  a posteriori durata/distanza/RPE/note, come farebbe per una corsa fatta senza tenere il telefono in mano. */
+function CardioLogPrompt({
+  durata,
+  onCambiaDurata,
+  distanza,
+  onCambiaDistanza,
+  note,
+  onCambiaNote,
+  rpe,
+  onCambiaRpe,
+  salvataggio,
+  errore,
+  onTermina,
+}: {
+  durata: string
+  onCambiaDurata: (v: string) => void
+  distanza: string
+  onCambiaDistanza: (v: string) => void
+  note: string
+  onCambiaNote: (note: string) => void
+  rpe: string
+  onCambiaRpe: (rpe: string) => void
+  salvataggio: boolean
+  errore: string | null
+  onTermina: () => void
+}) {
+  return (
+    <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900 p-4">
+      <h2 className="text-sm font-medium text-gray-400">Registra la sessione</h2>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          placeholder="durata (min)"
+          value={durata}
+          onChange={(e) => onCambiaDurata(e.target.value)}
+          className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+        />
+        <input
+          type="number"
+          step="0.1"
+          placeholder="distanza (km, opzionale)"
+          value={distanza}
+          onChange={(e) => onCambiaDistanza(e.target.value)}
+          className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+        />
+      </div>
+      <textarea
+        placeholder="note libere sulla sessione (opzionale)"
+        value={note}
+        onChange={(e) => onCambiaNote(e.target.value)}
+        rows={3}
+        className="w-full rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+      />
+      <input
+        type="number"
+        placeholder="RPE (1-10, opzionale)"
+        min={1}
+        max={10}
+        value={rpe}
+        onChange={(e) => onCambiaRpe(e.target.value)}
+        className="w-1/2 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+      />
+      {errore && <p className="text-sm text-red-400">{errore}</p>}
+      <button
+        onClick={onTermina}
+        disabled={salvataggio}
+        className="w-full rounded-lg bg-green-600 py-2 font-medium text-white disabled:opacity-50"
+      >
+        Registra
       </button>
     </section>
   )

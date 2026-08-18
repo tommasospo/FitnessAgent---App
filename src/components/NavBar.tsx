@@ -36,6 +36,9 @@ export function NavBar() {
             <NavLink to="/schede" className={link} onClick={() => setAperto(false)}>
               Schede
             </NavLink>
+            <NavLink to="/profilo" className={link} onClick={() => setAperto(false)}>
+              Profilo
+            </NavLink>
             <button onClick={() => supabase.auth.signOut()} className="py-4 text-left text-base text-gray-400">
               Esci
             </button>

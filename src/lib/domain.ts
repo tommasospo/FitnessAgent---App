@@ -2,6 +2,12 @@
 // Non tipizzate a livello di database: i campi sono opzionali perché gli agenti
 // che scrivono i piani potrebbero non popolarli tutti.
 
+// Tecnica prescritta per l'esercizio — solo un'etichetta, nessun dettaglio numerico strutturato: la
+// progressione (es. i pesi di un piramidale, i drop di uno stripping) resta descritta in `note`.
+// 'superset' su esercizi consecutivi nell'array li raggruppa visivamente — non serve un id di gruppo
+// a parte, l'adiacenza nell'ordine con cui il PT li scrive è già l'informazione.
+export type TecnicaEsercizio = 'superset' | 'piramidale' | 'stripping' | 'cedimento'
+
 export interface EsercizioPrescritto {
   nome: string
   serie: number
@@ -9,6 +15,7 @@ export interface EsercizioPrescritto {
   secondi?: number // ...o a tempo (plank, corsa a tempo, ...)
   carico?: number
   recupero_secondi?: number
+  tecnica?: TecnicaEsercizio
   note?: string
 }
 
